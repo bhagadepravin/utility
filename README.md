@@ -59,3 +59,11 @@ chmod +x manage_jars.sh
 ## Script Content
 
 The script contains three main functions for backing up, replacing, and restoring JAR files. It uses `find` to locate the specified JAR files in the target directory and handles file attributes and ownership during backup and restoration processes. The backup directory is created if it does not exist, and the ownership of the replaced or restored files is maintained.
+
+
+## Backup
+<img width="1510" alt="image" src="https://github.com/user-attachments/assets/1c4a2936-9bc4-43d5-b704-cc98effbc7af">
+
+## Replace + Dryrun
+<img width="1509" alt="image" src="https://github.com/user-attachments/assets/d0228f9c-6b18-409a-ae84-296c7fe286d7">
+
