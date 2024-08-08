@@ -1,111 +1,226 @@
 #!/bin/bash
 
-# Constants
-SEARCH_DIR="/usr/hdf/3.3.1.0-10/"
-BACKUP_DIR="/tmp/jar_backup"
-# wget https://repo1.maven.org/maven2/ch/qos/reload4j/reload4j/1.2.19/reload4j-1.2.19.jar
-REPLACEMENT_JAR="/root/reload4j-1.2.19.jar"
+# Define variables
+DIR="/usr/hdf/3.3.1.0-10"
+BACKUPDIR="/tmp/jar_backup"
 JAR_FILES=("log4j-1.2.16.jar" "log4j-1.2.17.jar")
+REPLACEMENT_JAR="/root/reload4j-1.2.19.jar"
+DRY_RUN=true  # Default to true for dry-run mode
+LOGFILE="/tmp/jar_backup_script.log"
+METADATA_FILE="$BACKUPDIR/metadata.txt"
 
-# Functions
+# Define color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+RESET='\033[0m'
 
+# Function to log messages
+log_message() {
+    echo "$(date +'%Y-%m-%d %H:%M:%S') - $1" >> "$LOGFILE"
+}
+
+# Function to print messages in color
 print_info() {
-    echo -e "\033[36m>> INFO: $1\033[0m"
+    echo -e "${BLUE}INFO: $1${RESET}"
 }
 
 print_success() {
-    echo -e "\033[32m✔ SUCCESS: $1\033[0m"
+    echo -e "${GREEN}SUCCESS: $1${RESET}"
 }
 
 print_warning() {
-    echo -e "\033[33m⚠ WARNING: $1\033[0m"
+    echo -e "${YELLOW}WARNING: $1${RESET}"
 }
 
 print_error() {
-    echo -e "\033[31m✘ ERROR: $1\033[0m"
+    echo -e "${RED}ERROR: $1${RESET}"
 }
 
-backup_files() {
-    print_info "Creating backup directory: $BACKUP_DIR"
-    mkdir -p "$BACKUP_DIR"
+# Function to print actions without executing them
+function echo_action {
+    if $DRY_RUN; then
+        print_info "[DRY-RUN] $1"
+    else
+        eval "$1"
+    fi
+}
 
-    for jar in "${JAR_FILES[@]}"; do
-        find "$SEARCH_DIR" -type f -name "$jar" | while read -r file; do
-            local backup_file="$BACKUP_DIR/$(realpath --relative-to="$SEARCH_DIR" "$file")"
-            mkdir -p "$(dirname "$backup_file")"
-            cp --preserve=mode,timestamps "$file" "$backup_file"
-            print_success "Backed up: $file to $backup_file"
+# Function to ensure the metadata file exists
+ensure_metadata_file() {
+    if [ ! -f "$METADATA_FILE" ]; then
+        touch "$METADATA_FILE"
+        echo_action "touch \"$METADATA_FILE\""
+    fi
+}
+
+# Backup function
+backup_jars() {
+    print_info "Starting backup..."
+    log_message "Starting backup..."
+
+    # Check if source directory exists
+    if [ ! -d "$DIR" ]; then
+        print_error "Source directory $DIR does not exist."
+        log_message "Source directory $DIR does not exist."
+        exit 1
+    fi
+
+    # Create backup directory if it doesn't exist
+    echo_action "mkdir -p \"$BACKUPDIR/usr\""
+
+    # Ensure metadata file exists
+    ensure_metadata_file
+
+    # Find and backup the specified JAR files
+    for JAR in "${JAR_FILES[@]}"; do
+        find "$DIR" -type f -name "$JAR" | while read -r FILE; do
+            # Prepare the backup path with "/usr" included
+            BACKUP_PATH="${FILE#/usr/}"
+            BACKUP_PATH="$BACKUPDIR/usr/$BACKUP_PATH"
+
+            # Create the directory structure in the backup location
+            echo_action "mkdir -p \"$(dirname "$BACKUP_PATH")\""
+
+            # Store the permissions and ownership
+            PERMISSIONS=$(stat -c "%a" "$FILE")
+            OWNER=$(stat -c "%U:%G" "$FILE")
+
+            # Copy the file to the backup location
+            echo_action "cp \"$FILE\" \"$BACKUP_PATH\""
+
+            # Store the permissions and ownership in a metadata file
+            echo "$BACKUP_PATH:$PERMISSIONS:$OWNER" >> "$METADATA_FILE"
+
+            # Log the actions
+            log_message "Backed up $FILE to $BACKUP_PATH with permissions $PERMISSIONS and ownership $OWNER"
+            print_success "Backed up $FILE to $BACKUP_PATH with permissions $PERMISSIONS and ownership $OWNER"
         done
     done
+
+    print_success "Backup completed."
+    log_message "Backup completed."
 }
 
-replace_files() {
-    local dry_run=0
-    while [[ "$1" =~ ^- ]]; do
-        case "$1" in
-            --dry-run) dry_run=1 ;;
-            *) print_error "Invalid option: $1"; exit 1 ;;
-        esac
-        shift
-    done
+# Replace original jars with the reload4j jar function
+replace_with_reload4j() {
+    print_info "Replacing original jars with reload4j..."
+    log_message "Replacing original jars with reload4j..."
 
-    print_info "Replacing jar files..."
-    for jar in "${JAR_FILES[@]}"; do
-        find "$SEARCH_DIR" -type f -name "$jar" | while read -r file; do
-            if (( dry_run )); then
-                print_info "Would replace: $file with $REPLACEMENT_JAR"
+    for JAR in "${JAR_FILES[@]}"; do
+        find "$DIR" -type f -name "$JAR" | while read -r FILE; do
+            # Determine the directory and the base name of the original JAR file
+            DIRNAME=$(dirname "$FILE")
+            REPLACEMENT_PATH="$DIRNAME/reload4j-1.2.19.jar"
+
+            if [ -f "$REPLACEMENT_JAR" ]; then
+                # Copy reload4j jar to the directory with a new name
+                echo_action "cp \"$REPLACEMENT_JAR\" \"$REPLACEMENT_PATH\""
+                log_message "Copied $REPLACEMENT_JAR to $REPLACEMENT_PATH"
+                print_success "Copied $REPLACEMENT_JAR to $REPLACEMENT_PATH"
             else
-                if [[ -f "$REPLACEMENT_JAR" ]]; then
-                    local old_ownership
-                    old_ownership=$(stat -c "%U:%G" "$file")
-                    cp --preserve=mode,timestamps "$REPLACEMENT_JAR" "$file"
-                    chown "$old_ownership" "$file"
-                    print_success "Replaced: $file with $REPLACEMENT_JAR"
-                else
-                    print_error "Replacement jar file $REPLACEMENT_JAR not found!"
-                    exit 1
-                fi
+                print_warning "$REPLACEMENT_JAR not found, skipping replacement."
+                log_message "$REPLACEMENT_JAR not found, skipping replacement."
             fi
         done
     done
 }
 
-restore_files() {
-    if [[ ! -d "$BACKUP_DIR" ]]; then
-        print_error "Backup directory $BACKUP_DIR does not exist!"
-        exit 1
-    fi
+# Remove original jar files
+remove_original_jars() {
+    print_info "Removing original JAR files..."
+    log_message "Removing original JAR files..."
 
-    print_info "Restoring files from backup..."
-    find "$BACKUP_DIR" -type f | while read -r backup_file; do
-        local relative_path
-        relative_path=$(realpath --relative-to="$BACKUP_DIR" "$backup_file")
-        local target_file="$SEARCH_DIR/$relative_path"
-        if [[ -f "$target_file" ]]; then
-            local backup_owner
-            backup_owner=$(stat -c "%U:%G" "$backup_file")
-            cp --preserve=mode,timestamps "$backup_file" "$target_file"
-            chown "$backup_owner" "$target_file"
-            print_success "Restored: $target_file from $backup_file"
-        else
-            print_warning "Target file $target_file does not exist. Skipping restore."
-        fi
+    for JAR in "${JAR_FILES[@]}"; do
+        find "$DIR" -type f -name "$JAR" | while read -r FILE; do
+            echo_action "rm \"$FILE\""
+            log_message "Removed original JAR file $FILE"
+            print_success "Removed original JAR file $FILE"
+        done
     done
 }
 
-# Main script
+# Restore function
+restore_jars() {
+    print_info "Starting restore..."
+    log_message "Starting restore..."
+
+    # Check if backup directory exists
+    if [ ! -d "$BACKUPDIR/usr" ]; then
+        print_error "Backup directory $BACKUPDIR/usr does not exist."
+        log_message "Backup directory $BACKUPDIR/usr does not exist."
+        exit 1
+    fi
+
+    # Restore the JAR files from the backup directory
+    if [ ! -f "$METADATA_FILE" ]; then
+        print_error "Metadata file $METADATA_FILE does not exist."
+        log_message "Metadata file $METADATA_FILE does not exist."
+        exit 1
+    fi
+
+    while IFS=: read -r BACKUP_FILE PERMISSIONS OWNER; do
+        if [ -f "$BACKUP_FILE" ]; then
+            # Determine the original location
+            ORIGINAL_PATH="${BACKUP_FILE#$BACKUPDIR/usr/}"
+            ORIGINAL_PATH="/usr/$ORIGINAL_PATH"
+
+            # Create the directory structure if it doesn't exist (only if not dry-run)
+            if ! $DRY_RUN; then
+                echo_action "mkdir -p \"$(dirname "$ORIGINAL_PATH")\""
+            fi
+
+            # Restore the file to the original location
+            echo_action "cp \"$BACKUP_FILE\" \"$ORIGINAL_PATH\""
+
+            # Restore permissions and ownership
+            echo_action "chmod $PERMISSIONS \"$ORIGINAL_PATH\""
+            echo_action "chown $OWNER \"$ORIGINAL_PATH\""
+
+            # Log the actions
+            log_message "Restored $BACKUP_FILE to $ORIGINAL_PATH with permissions $PERMISSIONS and ownership $OWNER"
+            print_success "Restored $BACKUP_FILE to $ORIGINAL_PATH with permissions $PERMISSIONS and ownership $OWNER"
+        fi
+    done < "$METADATA_FILE"
+
+    print_success "Restoration completed."
+    log_message "Restoration completed."
+}
+
+# Main script logic
+while getopts ":d" opt; do
+    case ${opt} in
+        d )
+            DRY_RUN=false
+            ;;
+        \? )
+            print_error "Invalid option: -$OPTARG"
+            exit 1
+            ;;
+        : )
+            print_error "Invalid option: -$OPTARG requires an argument"
+            exit 1
+            ;;
+    esac
+done
+shift $((OPTIND -1))
+
 case "$1" in
     backup)
-        backup_files
+        backup_jars
+        replace_with_reload4j
         ;;
     replace)
-        replace_files "$@"
+        replace_with_reload4j
+        remove_original_jars
         ;;
     restore)
-        restore_files
+        restore_jars
         ;;
     *)
-        print_error "Usage: $0 {backup|replace|restore} [options]"
+        print_error "Usage: $0 [-d] {backup|replace|restore}"
+        echo "  -d: Execute actions (default is dry-run)"
         exit 1
         ;;
 esac
