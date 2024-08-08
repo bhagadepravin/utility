@@ -209,7 +209,6 @@ shift $((OPTIND -1))
 case "$1" in
     backup)
         backup_jars
-        replace_with_reload4j
         ;;
     replace)
         replace_with_reload4j
