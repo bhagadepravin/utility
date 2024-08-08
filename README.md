@@ -29,7 +29,7 @@ This script provides functionalities to backup, replace, and restore JAR files i
 Back up the specified JAR files to the backup directory.
 
 ```bash
-./jar_test.sh backup
+./manage_jars.sh backup
 
 
 ### 2. Replace JAR Files
@@ -37,7 +37,7 @@ Back up the specified JAR files to the backup directory.
 Replace the original JAR files with the `reload4j-1.2.19.jar`. Ensure the replacement JAR is located at `/root/`.
 
 ```bash
-./jar_test.sh replace
+./manage_jars.sh replace
 ```
 
 ### 3. Restore JAR Files
@@ -45,7 +45,7 @@ Replace the original JAR files with the `reload4j-1.2.19.jar`. Ensure the replac
 Restore the JAR files from the backup directory to their original locations.
 
 ```bash
-./jar_test.sh restore
+./manage_jars.sh restore
 ```
 
 ### 4. Dry Run Mode
@@ -53,28 +53,28 @@ Restore the JAR files from the backup directory to their original locations.
 By default, the script operates in dry-run mode, which simulates actions without executing them. To perform actual actions, disable dry-run mode by using the `-d` option:
 
 ```bash
-./jar_test.sh -d backup
+./manage_jars.sh -d backup
 ```
 
 ```bash
-./jar_test.sh -d replace
+./manage_jars.sh -d replace
 ```
 
 ```bash
-./jar_test.sh -d restore
+./manage_jars.sh -d restore
 ```
 
 ## Example
 
 ```bash
 # Backup JAR files and replace with reload4j
-./jar_test.sh backup
+./manage_jars.sh backup
 
 # Replace original JAR files with reload4j
-./jar_test.sh replace
+./manage_jars.sh replace
 
 # Restore JAR files from backup
-./jar_test.sh restore
+./manage_jars.sh restore
 ```
 
 ## Notes
