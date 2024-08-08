@@ -1,6 +1,3 @@
-Here’s a `README.md` file for the script, including a description and usage instructions:
-
-```markdown
 # JAR Management Script
 
 This script provides functionalities to backup, replace, and restore JAR files in a specified directory. It is designed to handle JAR files used in applications, allowing you to safely back up, replace with a specific JAR, and restore files as needed.
@@ -33,7 +30,7 @@ Back up the specified JAR files to the backup directory.
 
 ```bash
 ./jar_test.sh backup
-```
+
 
 ### 2. Replace JAR Files
 
